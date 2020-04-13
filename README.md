@@ -2,6 +2,10 @@
 
 Materialize is a streaming data warehouse. Materialize accepts input data from a variety of streaming sources (e.g. Kafka) and files (e.g. CSVs), and lets you query them using the PostgreSQL dialect of SQL.
 
+This demo uses a realtime event stream from Meetup.com to continually poupulate materalized views that we can query using sql.
+
+The materialize schema is loaded at the start using a kubernetes Job pod.
+
 Checkout `Materialize` here:
 - https://materialize.io/docs/install/
 
@@ -28,7 +32,7 @@ oc port-forward svc/materialize 6875:6875 &
 psql -h localhost -p 6875 materialize
 ```
 
-See whats popular globally in Meetup.com based on live data stream:
+See whats popular globally in Meetup.com right now based on live data stream:
 ```
 materialize=> SELECT * FROM popularglobal;
    me_id    |                                   name                                    |      city      | state | country | count 
@@ -44,6 +48,15 @@ materialize=> SELECT * FROM popularglobal;
  1835433045 | "Sentiment Analysis on Product Review (Lemmatization, tf-idf)"            | "Bangalore"    |       | "in"    |     9
  1835433061 | "🤯Top 10 Social Media Digital Marketing Strategy of 2020 - Talk & Social" | "Toronto"      | "ON"  | "ca"    |     9
 (10 rows)
+```
+
+To see the total number of Meetup RSVP's that we have so far:
+```
+materialize=> SELECT * FROM meetuploccounter;
+ COUNT 
+-------
+   136
+(1 row)
 ```
 
 Checkout more queries below.
