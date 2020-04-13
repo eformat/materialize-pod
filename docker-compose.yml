@@ -1,0 +1,15 @@
+version: '3'
+services:
+  materialize:
+    image: "quay.io/eformat/materialize-pod:latest"
+    ports:
+      - "6875:6875"
+    hostname: materalize
+    volumes:
+    - /home/mike/tmp/mzdata:/work/mzdata:Z
+    - /tmp/meetups:/tmp/meetups:z
+  meetups:
+    image: "registry.redhat.io/ubi8/ubi:latest"
+    command: ["sh", "-c", "while true; do curl --max-time 9999999 -N http://stream.meetup.com/2/rsvps >> /tmp/meetups; done"]
+    volumes:
+    - /tmp/meetups:/tmp/meetups:z

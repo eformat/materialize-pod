@@ -54,21 +54,19 @@ PVC's used to store streaming event data and materialize data.
 
 Getting the data into materialize is as easy as:
 ```
--- real-time stream
 while true; do
-  curl --max-time 9999999 -N https://stream.wikimedia.org/v2/stream/recentchange >> /tmp/wikirecent
+  curl --max-time 9999999 -N http://stream.meetup.com/2/rsvps >> /work/meetups/data
 done
-
--- create streaming data source
-CREATE SOURCE wikirecent
-FROM FILE '/tmp/wikirecent'
+--
+CREATE SOURCE meetups
+FROM FILE '/work/meetups/data'
 WITH ( tail=true )
-FORMAT REGEX '^data: (?P<data>.*)';
+FORMAT REGEX '^(?P<meet>\{.*)';
 ```
 
 Raw data is queryable like postgresql jsonb data;
 
-Checkout `load.sql` config map for the created schema magic.
+Checkout `load.sql` Config Map in [`materizlize-demo.yaml`](./materialize-demo.yml) for the created schema magic.
 
 Meetup.com event stream from here: `http://stream.meetup.com/2/rsvps`
 
@@ -99,4 +97,11 @@ SELECT * FROM inmeets;
 SELECT * FROM popularin;
 SELECT * FROM globalmeets;
 SELECT * FROM popularglobal;
+```
+
+## Local Development
+
+Tweak to suit your environment:
+```
+make podman-run
 ```

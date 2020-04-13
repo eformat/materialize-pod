@@ -1,0 +1,348 @@
+---  
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: meetups
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  volumeMode: Filesystem
+---  
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: mzdata
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: schema
+data:
+  load.sql: |+
+    CREATE SOURCE meetups
+    FROM FILE '/work/meetups/data'
+    WITH ( tail=true )
+    FORMAT REGEX '^(?P<meet>\{.*)';
+
+    SHOW COLUMNS FROM meetups;
+
+    CREATE MATERIALIZED VIEW meetuplocation AS
+        SELECT
+        (val->'rsvp_id')::float::int AS id,
+        val->'group'->'group_city' AS city,
+        val->'group'->'group_country' AS country,
+        val->'group'->'group_state' AS state,
+        val->'venue'->'lon' AS longitude,
+        val->'venue'->'lat' AS latitude    
+        FROM (SELECT meet::jsonb AS val FROM meetups);
+
+    CREATE MATERIALIZED VIEW meetuploccounter AS SELECT COUNT(*) FROM meetuplocation;
+
+    CREATE MATERIALIZED VIEW meetupevent AS
+        SELECT
+        (val->'rsvp_id')::float::int AS id,
+        val->'event'->'event_name' AS name,
+        (val->'event'->'time')::float AS ts,
+        val->'event'->'event_url' AS url
+        FROM (SELECT meet::jsonb AS val FROM meetups);
+
+    CREATE MATERIALIZED VIEW meetupall AS
+      SELECT meet::jsonb AS val FROM meetups;
+
+    CREATE MATERIALIZED VIEW brisbanemeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.city = '"Brisbane"';
+
+    CREATE MATERIALIZED VIEW popularbrisbane AS
+      SELECT me_id, name, count(*) as count
+      FROM brisbanemeets
+      GROUP BY me_id, name
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW nzmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"nz"';
+
+    CREATE MATERIALIZED VIEW popularnz AS
+      SELECT me_id, name, city, count(*) as count
+      FROM nzmeets
+      GROUP BY me_id, name, city
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW gbmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"gb"';
+
+    CREATE MATERIALIZED VIEW populargb AS
+      SELECT me_id, name, city, count(*) as count
+      FROM gbmeets
+      GROUP BY me_id, name, city
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW usmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"us"';
+
+    CREATE MATERIALIZED VIEW popularus AS
+      SELECT me_id, name, city, state, count(*) as count
+      FROM usmeets
+      GROUP BY me_id, name, city, state
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW aumeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"au"';
+
+    CREATE MATERIALIZED VIEW popularau AS
+      SELECT me_id, name, city, state, count(*) as count
+      FROM aumeets
+      GROUP BY me_id, name, city, state
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW frmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"fr"';
+
+    CREATE MATERIALIZED VIEW popularfr AS
+      SELECT me_id, name, city, state, count(*) as count
+      FROM frmeets
+      GROUP BY me_id, name, city, state
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW jpmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"jp"';
+
+    CREATE MATERIALIZED VIEW popularjp AS
+      SELECT me_id, name, city, state, count(*) as count
+      FROM jpmeets
+      GROUP BY me_id, name, city, state
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW inmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '"in"';
+
+    CREATE MATERIALIZED VIEW popularin AS
+      SELECT me_id, name, city, state, count(*) as count
+      FROM inmeets
+      GROUP BY me_id, name, city, state
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW globalmeets AS
+      SELECT meetupevent.id AS me_id, meetupevent.name AS name, meetupevent.ts, meetupevent.url,
+      meetuplocation.id AS ml_id, meetuplocation.city, meetuplocation.country, meetuplocation.state, meetuplocation.longitude, meetuplocation.latitude
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id;
+
+    CREATE MATERIALIZED VIEW popularglobal AS
+      SELECT me_id, name, city, state, country, count(*) as count
+      FROM globalmeets
+      GROUP BY me_id, name, city, state, country
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW locationbycountry AS
+      SELECT country, count(*) as count
+      FROM meetuplocation
+      GROUP BY country;
+
+    CREATE MATERIALIZED VIEW top10country AS
+      SELECT * from locationbycountry
+      ORDER BY count DESC
+      LIMIT 10;
+
+    CREATE MATERIALIZED VIEW nocountrymeets AS
+      SELECT *
+      FROM meetupevent, meetuplocation
+      WHERE meetupevent.id = meetuplocation.id
+      AND meetuplocation.country = '';
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: materialize
+  name: materialize
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    app: materialize
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: materialize
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - while true; do curl --max-time 9999999 -N http://stream.meetup.com/2/rsvps >>
+          /tmp/meetups/data; done
+        env:
+        - name: PATH
+          value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - name: TERM
+          value: xterm
+        - name: container
+          value: oci
+        - name: HOSTNAME
+        image: registry.redhat.io/ubi8/ubi:latest
+        name: materialize-podmeetups1
+        ports:
+        - containerPort: 6875
+          protocol: TCP
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /tmp/meetups
+          name: meetups
+        workingDir: /
+      - command:
+        - /usr/local/bin/materialized
+        - --w=2
+        env:
+        - name: PATH
+          value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - name: TERM
+          value: xterm
+        - name: container
+          value: oci
+        - name: HOSTNAME
+          value: materalize
+        image: quay.io/eformat/materialize-pod:latest
+        name: materialize-podmaterialize1
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /work/mzdata
+          name: mzdata
+        - mountPath: /work/meetups
+          name: meetups
+        workingDir: /work
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      test: false
+      triggers:
+      - type: ConfigChange
+      volumes:
+      - name: mzdata
+        persistentVolumeClaim:
+          claimName: mzdata
+      - name: meetups
+        persistentVolumeClaim:
+          claimName: meetups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: materialize
+  name: materialize
+spec:
+  ports:
+  - name: psql
+    port: 6875
+    protocol: TCP
+    targetPort: 6875
+  selector:
+    app: materialize
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-schema
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: waitdb
+        image: registry.redhat.io/rhel8/postgresql-96:latest
+        command: ['sh', '-c', "until nslookup materialize.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for materialize service; sleep 2; done"]
+      containers:
+      - name: schema-load
+        image: registry.redhat.io/rhel8/postgresql-96:latest
+        command: [sh, -c]
+        args:
+        - psql -h materialize -p 6875 materialize -f /tmp/schema/load.sql
+        volumeMounts:
+        - mountPath: /tmp/schema/load.sql
+          name: schema
+          subPath: load.sql
+      restartPolicy: Never
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: schema
+        name: schema
+  backoffLimit: 3
