@@ -5,4 +5,4 @@ RUN chmod 755 /usr/local/bin/materialized
 EXPOSE 6875
 WORKDIR /work
 RUN chmod 775 /work
-CMD ["/usr/local/bin/materialized", "-w=2"]
+CMD ["/usr/local/bin/materialized", "--workers=2"]
