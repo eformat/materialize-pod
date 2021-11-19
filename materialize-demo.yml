@@ -235,7 +235,7 @@ spec:
       - command:
         - sh
         - -c
-        - while true; do curl --max-time 9999999 -N http://stream.meetup.com/2/rsvps >>
+        - while true; do curl --max-time 9999999 -N https://stream.meetup.com:443/2/rsvps >>
           /tmp/meetups/data; done
         env:
         - name: PATH
@@ -246,7 +246,7 @@ spec:
           value: oci
         - name: HOSTNAME
         image: registry.redhat.io/ubi8/ubi:latest
-        name: materialize-podmeetups1
+        name: materialize-pod-meetups
         ports:
         - containerPort: 6875
           protocol: TCP
@@ -260,7 +260,7 @@ spec:
         workingDir: /
       - command:
         - /usr/local/bin/materialized
-        - --w=2
+        - -w=2
         env:
         - name: PATH
           value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -271,12 +271,15 @@ spec:
         - name: HOSTNAME
           value: materalize
         image: quay.io/eformat/materialize-pod:latest
-        name: materialize-podmaterialize1
+        name: materialize-pod-materialize
         resources: {}
         securityContext: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
+        - mountPath: /tmp/schema/load.sql
+          name: schema
+          subPath: load.sql
         - mountPath: /work/mzdata
           name: mzdata
         - mountPath: /work/meetups
@@ -291,6 +294,10 @@ spec:
       triggers:
       - type: ConfigChange
       volumes:
+      - configMap:
+          defaultMode: 420
+          name: schema
+        name: schema
       - name: mzdata
         persistentVolumeClaim:
           claimName: mzdata
@@ -317,32 +324,4 @@ spec:
   type: ClusterIP
 status:
   loadBalancer: {}
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: load-schema
-spec:
-  template:
-    spec:
-      initContainers:
-      - name: waitdb
-        image: registry.redhat.io/rhel8/postgresql-96:latest
-        command: ['sh', '-c', "until nslookup materialize.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for materialize service; sleep 2; done"]
-      containers:
-      - name: schema-load
-        image: registry.redhat.io/rhel8/postgresql-96:latest
-        command: [sh, -c]
-        args:
-        - psql -h materialize -p 6875 materialize -f /tmp/schema/load.sql
-        volumeMounts:
-        - mountPath: /tmp/schema/load.sql
-          name: schema
-          subPath: load.sql
-      restartPolicy: Never
-      volumes:
-      - configMap:
-          defaultMode: 420
-          name: schema
-        name: schema
-  backoffLimit: 3
+  

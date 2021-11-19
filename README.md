@@ -7,7 +7,7 @@ This demo uses a realtime event stream from Meetup.com to continually poupulate 
 The materialize schema is loaded at the start using a kubernetes Job pod.
 
 Checkout `Materialize` here:
-- https://materialize.io/docs/install/
+- https://materialize.com/docs/install/
 
 Read more about differential dataflow here:
 - https://timelydataflow.github.io/differential-dataflow/
@@ -29,7 +29,7 @@ oc apply -f ./materialize-demo.yml
 Connect to materialize using postgresql client:
 ```
 oc port-forward svc/materialize 6875:6875 &
-psql -h localhost -p 6875 materialize
+psql -h localhost -p 6875 -U materialize materialize
 ```
 
 See whats popular globally in Meetup.com right now based on live data stream:
